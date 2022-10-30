@@ -729,6 +729,48 @@ static void removeBackslashNewline(char *P) {
   P[J] = '\0';
 }
 
+static uint32_t readUniversalChar(char *P, int Len) {
+  uint32_t C = 0;
+  for (int I = 0; I < Len; I++) {
+    if (!isxdigit(P[I]))
+      return 0;
+    C = (C << 4) | fromHex(P[I]);
+  }
+  return C;
+}
+
+// Replace \u or \U escape sequences with corresponding UTF-8 bytes.
+static void convertUniversalChars(char *P) {
+  char *Q = P;
+
+  while (*P) {
+    if (startsWith(P, "\\u")) {
+      uint32_t C = readUniversalChar(P + 2, 4);
+      if (C) {
+        P += 6;
+        Q += encodeUTF8(Q, C);
+      } else {
+        *Q++ = *P++;
+      }
+    } else if (startsWith(P, "\\U")) {
+      uint32_t C = readUniversalChar(P + 2, 8);
+      if (C) {
+        P += 10;
+        Q += encodeUTF8(Q, C);
+      } else {
+        *Q++ = *P++;
+      }
+    } else if (P[0] == '\\') {
+      *Q++ = *P++;
+      *Q++ = *P++;
+    } else {
+      *Q++ = *P++;
+    }
+  }
+
+  *Q = '\0';
+}
+
 // 词法分析文件
 Token *tokenizeFile(char *Path) {
   // 读取文件内容
@@ -738,6 +780,7 @@ Token *tokenizeFile(char *Path) {
 
   canonicalizeNewline(P);
   removeBackslashNewline(P);
+  convertUniversalChars(P);
 
   // 文件编号
   static int FileNo;
