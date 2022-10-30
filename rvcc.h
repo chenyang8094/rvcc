@@ -393,6 +393,7 @@ int alignTo(int N, int Align);
 //
 
 int encodeUTF8(char *Buf, uint32_t C);
+uint32_t decodeUTF8(char **NewPos, char *P);
 
 //
 // 主程序，驱动文件
