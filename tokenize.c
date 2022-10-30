@@ -304,6 +304,42 @@ static Token *readStringLiteral(char *Start, char *Quote) {
   return Tok;
 }
 
+// Read a UTF-8-encoded string literal and transcode it in UTF-16.
+//
+// UTF-16 is yet another variable-width encoding for Unicode. Code
+// points smaller than U+10000 are encoded in 2 bytes. Code points
+// equal to or larger than that are encoded in 4 bytes. Each 2 bytes
+// in the 4 byte sequence is called "surrogate", and a 4 byte sequence
+// is called a "surrogate pair".
+static Token *readUTF16StringLiteral(char *Start, char *Quote) {
+  char *End = stringLiteralEnd(Quote + 1);
+  uint16_t *Buf = calloc(2, End - Start);
+  int Len = 0;
+
+  for (char *P = Quote + 1; P < End;) {
+    if (*P == '\\') {
+      Buf[Len++] = readEscapedChar(&P, P + 1);
+      continue;
+    }
+
+    uint32_t C = decodeUTF8(&P, P);
+    if (C < 0x10000) {
+      // Encode a code point in 2 bytes.
+      Buf[Len++] = C;
+    } else {
+      // Encode a code point in 4 bytes.
+      C -= 0x10000;
+      Buf[Len++] = 0xd800 + ((C >> 10) & 0x3ff);
+      Buf[Len++] = 0xdc00 + (C & 0x3ff);
+    }
+  }
+
+  Token *Tok = newToken(TK_STR, Start, End + 1);
+  Tok->Ty = arrayOf(TyUShort, Len + 1);
+  Tok->Str = (char *)Buf;
+  return Tok;
+}
+
 // 读取字符字面量
 static Token *readCharLiteral(char *Start, char *Quote, Type *Ty) {
   char *P = Quote + 1;
@@ -562,6 +598,13 @@ Token *tokenize(File *FP) {
     // UTF-8 string literal
     if (startsWith(P, "u8\"")) {
       Cur = Cur->Next = readStringLiteral(P, P + 2);
+      P += Cur->Len;
+      continue;
+    }
+
+    // UTF-16 string literal
+    if (startsWith(P, "u\"")) {
+      Cur = Cur->Next = readUTF16StringLiteral(P, P + 1);
       P += Cur->Len;
       continue;
     }
