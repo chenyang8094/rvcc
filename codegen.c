@@ -1637,11 +1637,16 @@ static void assignLVarOffsets(Obj *Prog) {
       if (Var->Offset && !Var->IsHalfByStack)
         continue;
 
-      // 每个变量分配空间
+      // AMD64 System V ABI has a special alignment rule for an array of
+      // length at least 16 bytes. We need to align such array to at least
+      // 16-byte boundaries. See p.14 of
+      // https://github.com/hjl-tools/x86-psABI/wiki/x86-64-psABI-draft.pdf.
+      int align = (Var->Ty->Kind == TY_ARRAY && Var->Ty->Size >= 16)
+                      ? MAX(16, Var->Align)
+                      : Var->Align;
+
       Offset += Var->Ty->Size;
-      // 对齐变量
-      Offset = alignTo(Offset, Var->Align);
-      // 为每个变量赋一个偏移量，或者说是栈中地址
+      Offset = alignTo(Offset, align);
       Var->Offset = -Offset;
       printLn(" #  寄存器传递变量%s偏移量%d", Var->Name, Var->Offset);
     }
