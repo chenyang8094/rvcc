@@ -667,7 +667,26 @@ File *newFile(char *Name, int FileNo, char *Contents) {
   return FP;
 }
 
-// 移除续行，即反斜杠+换行符的形式
+// Replaces \r or \r\n with \n.
+static void canonicalizeNewline(char *P) {
+  int I = 0, J = 0;
+
+  while (P[I]) {
+    if (P[I] == '\r' && P[I + 1] == '\n') {
+      I += 2;
+      P[J++] = '\n';
+    } else if (P[I] == '\r') {
+      I++;
+      P[J++] = '\n';
+    } else {
+      P[J++] = P[I++];
+    }
+  }
+
+  P[J] = '\0';
+}
+
+// Removes backslashes followed by a newline.
 static void removeBackslashNewline(char *P) {
   // 旧字符串的索引I（从0开始）
   // 新字符串的索引J（从0开始）
@@ -717,7 +736,7 @@ Token *tokenizeFile(char *Path) {
   if (!P)
     return NULL;
 
-  // 移除续行
+  canonicalizeNewline(P);
   removeBackslashNewline(P);
 
   // 文件编号
