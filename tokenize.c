@@ -665,7 +665,7 @@ Token *tokenize(File *FP) {
     // 宽字符字面量，占两个字节
     if (startsWith(P, "L'")) {
       Cur = Cur->Next = readCharLiteral(P, P + 1, TyInt);
-      P = Cur->Loc + Cur->Len;
+      P += Cur->Len;
       continue;
     }
 
