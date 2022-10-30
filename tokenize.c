@@ -584,6 +584,13 @@ Token *tokenize(File *FP) {
       continue;
     }
 
+    // UTF-32 character literal
+    if (startsWith(P, "U'")) {
+      Cur = Cur->Next = readCharLiteral(P, P + 1, TyUInt);
+      P += Cur->Len;
+      continue;
+    }
+
     // 解析标记符或关键字
     // [a-zA-Z_][a-zA-Z0-9_]*
     if (isIdent1(*P)) {
