@@ -1016,6 +1016,12 @@ static void stringInitializer(Token **Rest, Token *Tok, Initializer *Init) {
       Init->Children[I]->Expr = newNum(Str[I], Tok);
     break;
   }
+  case 4: {
+    uint32_t *Str = (uint32_t *)Tok->Str;
+    for (int I = 0; I < Len; I++)
+      Init->Children[I]->Expr = newNum(Str[I], Tok);
+    break;
+  }
   default:
     unreachable();
   }
