@@ -2501,6 +2501,18 @@ static void structMembers(Token **Rest, Token *Tok, Type *Ty) {
     Type *BaseTy = declspec(&Tok, Tok, &Attr);
     int First = true;
 
+    // Anonymous struct member
+    if ((BaseTy->Kind == TY_STRUCT || BaseTy->Kind == TY_UNION) &&
+        consume(&Tok, Tok, ";")) {
+      Member *Mem = calloc(1, sizeof(Member));
+      Mem->Ty = BaseTy;
+      Mem->Idx = Idx++;
+      Mem->Align = Attr.Align ? Attr.Align : Mem->Ty->Align;
+      Cur = Cur->Next = Mem;
+      continue;
+    }
+
+    // Regular struct members
     while (!consume(&Tok, Tok, ";")) {
       if (!First)
         Tok = skip(Tok, ",");
@@ -2647,22 +2659,53 @@ static Type *unionDecl(Token **Rest, Token *Tok) {
 
 // 获取结构体成员
 static Member *getStructMember(Type *Ty, Token *Tok) {
-  for (Member *Mem = Ty->Mems; Mem; Mem = Mem->Next)
+  for (Member *Mem = Ty->Mems; Mem; Mem = Mem->Next) {
+    // Anonymous struct member
+    if ((Mem->Ty->Kind == TY_STRUCT || Mem->Ty->Kind == TY_UNION) &&
+        !Mem->Name) {
+      if (getStructMember(Mem->Ty, Tok))
+        return Mem;
+      continue;
+    }
+
+    // Regular struct member
     if (Mem->Name->Len == Tok->Len &&
         !strncmp(Mem->Name->Loc, Tok->Loc, Tok->Len))
       return Mem;
-  errorTok(Tok, "no such member");
+  }
   return NULL;
 }
 
-// 构建结构体成员的节点
-static Node *structRef(Node *LHS, Token *Tok) {
-  addType(LHS);
-  if (LHS->Ty->Kind != TY_STRUCT && LHS->Ty->Kind != TY_UNION)
-    errorTok(LHS->Tok, "not a struct nor a union");
+// Create a node representing a struct member access, such as foo.bar
+// where foo is a struct and bar is a member name.
+//
+// C has a feature called "anonymous struct" which allows a struct to
+// have another unnamed struct as a member like this:
+//
+//   struct { struct { int a; }; int b; } x;
+//
+// The members of an anonymous struct belong to the outer struct's
+// member namespace. Therefore, in the above example, you can access
+// member "a" of the anonymous struct as "x.a".
+//
+// This function takes care of anonymous structs.
+static Node *structRef(Node *Nd, Token *Tok) {
+  addType(Nd);
+  if (Nd->Ty->Kind != TY_STRUCT && Nd->Ty->Kind != TY_UNION)
+    errorTok(Nd->Tok, "not a struct nor a union");
 
-  Node *Nd = newUnary(ND_MEMBER, LHS, Tok);
-  Nd->Mem = getStructMember(LHS->Ty, Tok);
+  Type *Ty = Nd->Ty;
+
+  for (;;) {
+    Member *Mem = getStructMember(Ty, Tok);
+    if (!Mem)
+      errorTok(Tok, "no such member");
+    Nd = newUnary(ND_MEMBER, Nd, Tok);
+    Nd->Mem = Mem;
+    if (Mem->Name)
+      break;
+    Ty = Mem->Ty;
+  }
   return Nd;
 }
 
