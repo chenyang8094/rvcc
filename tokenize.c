@@ -631,6 +631,13 @@ Token *tokenize(File *FP) {
       continue;
     }
 
+    // Wide string literal
+    if (startsWith(P, "L\"")) {
+      Cur = Cur->Next = readUTF32StringLiteral(P, P + 1, TyInt);
+      P += Cur->Len;
+      continue;
+    }
+
     // UTF-32 string literal
     if (startsWith(P, "U\"")) {
       Cur = Cur->Next = readUTF32StringLiteral(P, P + 1, TyUInt);
