@@ -1017,15 +1017,21 @@ static Token *lineMacro(Token *Tmpl) {
   return newNumToken(Tmpl->LineNo, Tmpl);
 }
 
+// __COUNTER__ is expanded to serial values starting from 0.
+static Token *counterMacro(Token *Tmpl) {
+  static int I = 0;
+  return newNumToken(I++, Tmpl);
+}
+
 // __DATE__ is expanded to the current date, e.g. "May 17 2020".
-static char *formatDate(struct tm *tm) {
-  static char mon[][4] = {
+static char *formatDate(struct tm *Tm) {
+  static char Mon[][4] = {
       "Jan", "Feb", "Mar", "Apr", "May", "Jun",
       "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
   };
 
-  return format("\"%s %2d %d\"", mon[tm->tm_mon], tm->tm_mday,
-                tm->tm_year + 1900);
+  return format("\"%s %2d %d\"", Mon[Tm->tm_mon], Tm->tm_mday,
+                Tm->tm_year + 1900);
 }
 
 // __TIME__ is expanded to the current time, e.g. "13:34:03".
@@ -1084,6 +1090,8 @@ void initMacros(void) {
 
   addBuiltin("__FILE__", fileMacro);
   addBuiltin("__LINE__", lineMacro);
+  // 支持__COUNTER__
+  addBuiltin("__COUNTER__", counterMacro);
 
   // 支持__DATE__和__TIME__
   time_t Now = time(NULL);
