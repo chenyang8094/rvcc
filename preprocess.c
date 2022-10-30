@@ -1017,6 +1017,22 @@ static Token *lineMacro(Token *Tmpl) {
   return newNumToken(Tmpl->LineNo, Tmpl);
 }
 
+// __DATE__ is expanded to the current date, e.g. "May 17 2020".
+static char *formatDate(struct tm *tm) {
+  static char mon[][4] = {
+      "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+      "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+  };
+
+  return format("\"%s %2d %d\"", mon[tm->tm_mon], tm->tm_mday,
+                tm->tm_year + 1900);
+}
+
+// __TIME__ is expanded to the current time, e.g. "13:34:03".
+static char *formatTime(struct tm *tm) {
+  return format("\"%02d:%02d:%02d\"", tm->tm_hour, tm->tm_min, tm->tm_sec);
+}
+
 // 初始化预定义的宏
 void initMacros(void) {
   defineMacro("_LP64", "1");
@@ -1068,6 +1084,12 @@ void initMacros(void) {
 
   addBuiltin("__FILE__", fileMacro);
   addBuiltin("__LINE__", lineMacro);
+
+  // 支持__DATE__和__TIME__
+  time_t Now = time(NULL);
+  struct tm *Tm = localtime(&Now);
+  defineMacro("__DATE__", formatDate(Tm));
+  defineMacro("__TIME__", formatTime(Tm));
 }
 
 // 拼接相邻的字符串
