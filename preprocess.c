@@ -1069,6 +1069,8 @@ static Token *timestampMacro(Token *Tmpl) {
   return newStrToken(Buf, Tmpl);
 }
 
+static Token *baseFileMacro(Token *Tmpl) { return newStrToken(BaseFile, Tmpl); }
+
 // __DATE__ is expanded to the current date, e.g. "May 17 2020".
 static char *formatDate(struct tm *Tm) {
   static char Mon[][4] = {
@@ -1142,6 +1144,8 @@ void initMacros(void) {
   addBuiltin("__COUNTER__", counterMacro);
   // 支持__TIMESTAMP__
   addBuiltin("__TIMESTAMP__", timestampMacro);
+  // 支持__BASE_FILE__
+  addBuiltin("__BASE_FILE__", baseFileMacro);
 
   // 支持__DATE__和__TIME__
   time_t Now = time(NULL);
