@@ -81,6 +81,14 @@ static void genAddr(Node *Nd) {
   switch (Nd->Kind) {
   // 变量
   case ND_VAR:
+    // Thread-local variable
+    if (Nd->Var->IsTLS) {
+      printLn("  lui a0,%%tprel_hi(%s)", Nd->Var->Name);
+      printLn("  add a0,a0,tp,%%tprel_add(%s)", Nd->Var->Name);
+      printLn("  addi a0,a0,%%tprel_lo(%s)", Nd->Var->Name);
+      return;
+    }
+
     if (Nd->Var->IsLocal) { // 偏移量是相对于fp的
       printLn("  # 获取局部变量%s的栈内地址为%d(fp)", Nd->Var->Name,
               Nd->Var->Offset);
@@ -1696,15 +1704,20 @@ static void emitData(Obj *Prog) {
       error("Align can not be 0!");
     printLn("  .align %d", simpleLog2(Var->Align));
 
+    // Common symbol
     if (OptFCommon && Var->IsTentative) {
       printLn("  .comm %s, %d, %d", Var->Name, Var->Ty->Size, Align);
       continue;
     }
 
     // 判断是否有初始值
+    // .data or .tdata
     if (Var->InitData) {
       printLn("\n  # 数据段标签");
-      printLn("  .data");
+      if (Var->IsTLS)
+        printLn("  .section .tdata,\"awT\",@progbits");
+      else
+        printLn("  .data");
       printLn("%s:", Var->Name);
       Relocation *Rel = Var->Rel;
       int Pos = 0;
@@ -1730,7 +1743,11 @@ static void emitData(Obj *Prog) {
 
     // bss段未给数据分配空间，只记录数据所需空间的大小
     printLn("  # 未初始化的全局变量");
-    printLn("  .bss");
+    // .bss or .tbss
+    if (Var->IsTLS)
+      printLn("  .section .tbss,\"awT\",@nobits");
+    else
+      printLn("  .bss");
     printLn("%s:", Var->Name);
     printLn("  # 全局变量零填充%d位", Var->Ty->Size);
     printLn("  .zero %d", Var->Ty->Size);
