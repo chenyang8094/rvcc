@@ -218,6 +218,7 @@ static bool isKeyword(Token *Tok) {
       "_Alignas",     "do",        "signed",   "unsigned", "const",
       "volatile",     "auto",      "register", "restrict", "__restrict",
       "__restrict__", "_Noreturn", "float",    "double",   "typeof",
+      "asm",
   };
 
   // 遍历关键字列表匹配
