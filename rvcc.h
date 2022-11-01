@@ -435,4 +435,5 @@ bool fileExists(char *Path);
 
 // 引入路径区
 extern StringArray IncludePaths;
+extern bool OptFCommon;
 extern char *BaseFile;
