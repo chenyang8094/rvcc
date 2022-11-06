@@ -235,7 +235,9 @@ typedef enum {
   ND_CASE,      // "case"
   ND_BLOCK,     // { ... }，代码块
   ND_GOTO,      // goto，直接跳转语句
+  ND_GOTO_EXPR, // "goto" 标签作为值
   ND_LABEL,     // 标签语句
+  ND_LABEL_VAL, // [GNU] 标签作为值
   ND_FUNCALL,   // 函数调用
   ND_EXPR_STMT, // 表达式语句
   ND_STMT_EXPR, // 语句表达式

@@ -140,7 +140,7 @@ static Obj *BuiltinAlloca;
 //        | "while" "(" expr ")" stmt
 //        | "do" stmt "while" "(" expr ")" ";"
 //        | asmStmt
-//        | "goto" ident ";"
+//        | "goto" (ident | "*" expr) ";"
 //        | "break" ";"
 //        | "continue" ";"
 //        | ident ":" stmt
@@ -166,6 +166,7 @@ static Obj *BuiltinAlloca;
 // cast = "(" typeName ")" cast | unary
 // unary = ("+" | "-" | "*" | "&" | "!" | "~") cast
 //       | ("++" | "--") unary
+//       | "&&" ident
 //       | postfix
 // structMembers = (declspec declarator (","  declarator)* ";")*
 // structDecl = structUnionDecl
@@ -1808,7 +1809,7 @@ static Node *asmStmt(Token **Rest, Token *Tok) {
 //        | "while" "(" expr ")" stmt
 //        | "do" stmt "while" "(" expr ")" ";"
 //        | asmStmt
-//        | "goto" ident ";"
+//        | "goto" (ident | "*" expr) ";"
 //        | "break" ";"
 //        | "continue" ";"
 //        | ident ":" stmt
@@ -2008,6 +2009,14 @@ static Node *stmt(Token **Rest, Token *Tok) {
 
   // "goto" ident ";"
   if (equal(Tok, "goto")) {
+    if (equal(Tok->Next, "*")) {
+      // [GNU] `goto *ptr` jumps to the address specified by `ptr`.
+      Node *Nd = newNode(ND_GOTO_EXPR, Tok);
+      Nd->LHS = expr(&Tok, Tok->Next->Next);
+      *Rest = skip(Tok, ";");
+      return Nd;
+    }
+
     Node *Nd = newNode(ND_GOTO, Tok);
     Nd->Label = getIdent(Tok->Next);
     // 将Nd同时存入Gotos，最后用于解析UniqueLabel
@@ -2845,6 +2854,7 @@ static Node *cast(Token **Rest, Token *Tok) {
 // 解析一元运算
 // unary = ("+" | "-" | "*" | "&" | "!" | "~") cast
 //       | ("++" | "--") unary
+//       | "&&" ident
 //       | postfix
 static Node *unary(Token **Rest, Token *Tok) {
   // "+" cast
@@ -2892,6 +2902,16 @@ static Node *unary(Token **Rest, Token *Tok) {
   // "--" unary
   if (equal(Tok, "--"))
     return toAssign(newSub(unary(Rest, Tok->Next), newNum(1, Tok), Tok));
+
+  // [GNU] labels-as-values
+  if (equal(Tok, "&&")) {
+    Node *Nd = newNode(ND_LABEL_VAL, Tok);
+    Nd->Label = getIdent(Tok->Next);
+    Nd->GotoNext = Gotos;
+    Gotos = Nd;
+    *Rest = Tok->Next->Next;
+    return Nd;
+  }
 
   // postfix
   return postfix(Rest, Tok);
