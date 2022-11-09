@@ -1102,11 +1102,70 @@ void initMacros(void) {
   defineMacro("__TIME__", formatTime(Tm));
 }
 
-// 拼接相邻的字符串
-static void joinAdjacentStringLiterals(Token *Tok1) {
-  // 遍历直到终止符
-  while (Tok1->Kind != TK_EOF) {
-    // 判断是否为两个字符串终结符在一起
+typedef enum {
+  STR_NONE,
+  STR_UTF8,
+  STR_UTF16,
+  STR_UTF32,
+  STR_WIDE,
+} StringKind;
+
+static StringKind getStringKind(Token *Tok) {
+  if (!strcmp(Tok->Loc, "u8"))
+    return STR_UTF8;
+
+  switch (Tok->Loc[0]) {
+  case '"':
+    return STR_NONE;
+  case 'u':
+    return STR_UTF16;
+  case 'U':
+    return STR_UTF32;
+  case 'L':
+    return STR_WIDE;
+  default:
+    unreachable();
+    return -1;
+  }
+}
+
+// Concatenate adjacent string literals into a single string literal
+// as per the C spec.
+static void joinAdjacentStringLiterals(Token *Tok) {
+  // First pass: If regular string literals are adjacent to wide
+  // string literals, regular string literals are converted to a wide
+  // type before concatenation. In this pass, we do the conversion.
+  for (Token *Tok1 = Tok; Tok1->Kind != TK_EOF;) {
+    if (Tok1->Kind != TK_STR || Tok1->Next->Kind != TK_STR) {
+      Tok1 = Tok1->Next;
+      continue;
+    }
+
+    StringKind Kind = getStringKind(Tok1);
+    Type *BaseTy = Tok1->Ty->Base;
+
+    for (Token *T = Tok1->Next; T->Kind == TK_STR; T = T->Next) {
+      StringKind K = getStringKind(T);
+      if (Kind == STR_NONE) {
+        Kind = K;
+        BaseTy = T->Ty->Base;
+      } else if (K != STR_NONE && Kind != K) {
+        errorTok(T,
+                  "unsupported non-standard concatenation of string literals");
+      }
+    }
+
+    if (BaseTy->Size > 1)
+      for (Token *T = Tok1; T->Kind == TK_STR; T = T->Next)
+        if (T->Ty->Base->Size == 1)
+          *T = *tokenizeStringLiteral(T, BaseTy);
+
+    while (Tok1->Kind == TK_STR)
+      Tok1 = Tok1->Next;
+  }
+
+  // Second pass: concatenate adjacent string literals.
+  for (Token *Tok1 = Tok; Tok1->Kind != TK_EOF;) {
     if (Tok1->Kind != TK_STR || Tok1->Next->Kind != TK_STR) {
       Tok1 = Tok1->Next;
       continue;
