@@ -1955,6 +1955,13 @@ void emitText(Obj *Prog) {
     genStmt(Fn->Body);
     assert(Depth == 0);
 
+    // [https://www.sigbus.info/n1570#5.1.2.2.3p1] The C spec defines
+    // a special rule for the main function. Reaching the end of the
+    // main function is equivalent to returning 0, even though the
+    // behavior is undefined for the other functions.
+    if (strcmp(Fn->Name, "main") == 0)
+        printLn("  li a0, 0");
+
     // Epilogue，后语
     // 输出return段标签
     printLn("# =====%s段结束===============", Fn->Name);
